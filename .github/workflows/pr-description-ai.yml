@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.body == '' || github.event.pull_request.body == null
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
@@ -50,7 +50,7 @@ jobs:
 
       - name: Generate description with AI
         if: env.ANTHROPIC_API_KEY != ''
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@e90deca47693f9457b72f2b53c17d7c445a87342 # v1
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
@@ -89,7 +89,7 @@ jobs:
 
       - name: Fallback description (no AI)
         if: env.ANTHROPIC_API_KEY == ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const fs = require('fs');
