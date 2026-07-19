@@ -20,7 +20,7 @@ jobs:
   sbom:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Generate SBOM with Syft
         uses: anchore/sbom-action@v0
@@ -41,7 +41,7 @@ jobs:
           upload-release-assets: true
 
       - name: Scan SBOM for vulnerabilities
-        uses: anchore/scan-action@v4
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7
         id: scan
         with:
           sbom: sbom.spdx.json
@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload vulnerability report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sbom-vulnerability-report
           path: |
