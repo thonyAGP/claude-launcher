@@ -1,27 +1,32 @@
 # DevOps-Factory: Container Scanning (AUTO-76)
 # Scans Docker images for vulnerabilities using Trivy
-# Runs on PRs modifying Dockerfiles and weekly schedule
+# PR/push-only: weekly full scans run centrally from DevOps-Factory (central-scan.yml).
+# SARIF upload only on public repos (Code Scanning requires Advanced Security,
+# unavailable on private repos with the Free plan).
 
 name: Container Scan
 
 on:
   pull_request:
     branches: [main, master]
-    paths: ['Dockerfile*', 'docker-compose*.yml', '.dockerignore']
+    paths: ['**/Dockerfile*', 'docker-compose*.yml', '.dockerignore', '.github/workflows/container-scan.yml']
   push:
     branches: [main, master]
-    paths: ['Dockerfile*']
-  schedule:
-    - cron: '0 5 * * 6' # Weekly Saturday 5am
+    paths: ['**/Dockerfile*', '.github/workflows/container-scan.yml']
 
 permissions:
   contents: read
   pull-requests: write
   security-events: write
 
+concurrency:
+  group: container-scan-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   trivy-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +37,7 @@ jobs:
           echo "files<<EOF" >> $GITHUB_OUTPUT
           echo "$FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-          COUNT=$(echo "$FILES" | grep -c . || echo "0")
+          COUNT=$(printf '%s\n' "$FILES" | awk 'NF { n++ } END { print n+0 }')
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
       - name: Build image for scanning
@@ -60,8 +65,8 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
 
-      - name: Upload SARIF
-        if: steps.find.outputs.count != '0' && github.event_name != 'pull_request'
+      - name: Upload SARIF (public repos only)
+        if: steps.find.outputs.count != '0' && github.event_name != 'pull_request' && !github.event.repository.private
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
@@ -70,10 +75,18 @@ jobs:
         if: steps.find.outputs.count != '0'
         id: results
         run: |
-          CRITICAL=$(grep -c "CRITICAL" trivy-results.txt 2>/dev/null || echo "0")
-          HIGH=$(grep -c "HIGH" trivy-results.txt 2>/dev/null || echo "0")
+          CRITICAL=$(awk '/CRITICAL/ { n++ } END { print n+0 }' trivy-results.txt)
+          HIGH=$(awk '/HIGH/ { n++ } END { print n+0 }' trivy-results.txt)
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
           echo "high=$HIGH" >> $GITHUB_OUTPUT
+          {
+            echo "## Container Security Scan (Trivy)"
+            echo ""
+            echo "| Severity | Count |"
+            echo "|----------|-------|"
+            echo "| Critical | $CRITICAL |"
+            echo "| High | $HIGH |"
+          } >> $GITHUB_STEP_SUMMARY
 
       - name: Trivy config scan (Dockerfile best practices)
         if: steps.find.outputs.count != '0'
@@ -114,3 +127,4 @@ jobs:
               issue_number: context.issue.number,
               body,
             });
+
